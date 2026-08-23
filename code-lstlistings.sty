@@ -38,3 +38,53 @@
 	ndkeywords={@Deprecated, @JvmField, @JvmName, @JvmOverloads, @JvmStatic, @JvmSynthetic, Array, Byte, Double, Float, Int, Integer, Iterable, Long, Runnable, Short, String, Unit, it},
 	sensitive=true
 }
+
+\lstdefinelanguage{MiniZinc}{
+	keywords={var, int, constraint, solve, satisfy, forall, in, array, of},
+	sensitive=true,
+	morecomment=[l]{\%},
+	morestring=[b]"
+}
+
+\lstset{
+	language=MiniZinc,
+	basicstyle=\ttfamily\footnotesize,
+	keywordstyle=\color{blue},
+	commentstyle=\color{gray},
+	stringstyle=\color{red},
+	numbers=left,
+	numberstyle=\tiny,
+	frame=single,
+	breaklines=true
+}
+
+\lstdefinelanguage{json}{
+	basicstyle=\ttfamily\footnotesize,
+	numbers=left,
+	numberstyle=\tiny,
+	stepnumber=1,
+	numbersep=8pt,
+	showstringspaces=false,
+	breaklines=true,
+	frame=single,
+	stringstyle=\color{red},
+	keywordstyle=\color{blue},
+	morestring=[b]",
+	literate=
+	*{0}{{{\color{blue}0}}}{1}
+	{1}{{{\color{blue}1}}}{1}
+	{2}{{{\color{blue}2}}}{1}
+	{3}{{{\color{blue}3}}}{1}
+	{4}{{{\color{blue}4}}}{1}
+	{5}{{{\color{blue}5}}}{1}
+	{6}{{{\color{blue}6}}}{1}
+	{7}{{{\color{blue}7}}}{1}
+	{8}{{{\color{blue}8}}}{1}
+	{9}{{{\color{blue}9}}}{1}
+	{:}{{{\color{black}{:}}}}{1}
+	{,}{{{\color{black}{,}}}}{1}
+	{\{}{{{\color{black}{\{}}}}{1}
+	{\}}{{{\color{black}{\}}}}}{1}
+	{[}{{{\color{black}{[}}}}{1}
+	{]}{{{\color{black}{]}}}}{1},
+}

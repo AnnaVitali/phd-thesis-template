@@ -4,81 +4,198 @@
 \usepackage{code-lstlistings}
 \usepackage{notes}
 \usepackage{shortcuts}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amsfonts}
+\usepackage{subcaption}
+\usepackage{xcolor}
+\usepackage[table]{xcolor}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{rotating}
+\usepackage{float}
+\usepackage{pdflscape} %questo gira le pagine (meglio questo per leggere online)
+%\usepackage{lscape} %questo solo le tabelle
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xspace}
+\usepackage{tabularx}
+\usepackage{makecell}
+\usepackage{tikz}
+\usepackage{multirow}
+\usepackage{siunitx}
+\usepackage{mathrsfs}
+\usepackage{hyperref}
+
+% Load natbib before bibentry for full compatibility
+\usepackage[numbers,square]{natbib}
+\usepackage{bibentry}
+
+%remove bounding boxes around clickable elements
+\hypersetup{
+	hidelinks
+}
+
+%----- Command -----%
+% Teniamo la convenzione mathtt = parametri ; mathit = variabili
+\newcommand{\wtab}{\mathtt{WTab}}
+\newcommand{\htab}{\mathtt{HTab}}
+\newcommand{\wmin}{\mathtt{WMin}}
+\newcommand{\hmin}{\mathtt{HMin}}
+\newcommand{\ntypes}{\mathtt{NTypes}}
+\newcommand{\nfix}{\mathtt{NFix}}
+\newcommand{\wfix}{\mathtt{WFix}}
+\newcommand{\hfix}{\mathtt{HFix}}
+\newcommand{\nmin}{\mathtt{NMin}}
+\newcommand{\nmax}{\mathtt{NMax}}
+\newcommand{\finer}{f_\mathit{iner}}
+\newcommand{\fdist}{f_\mathit{dist}}
+\newcommand{\fdistsemi}{f_{\mathit{dist}}^{\mathit{semi\text{-}perimeter}}}
+\newcommand{\fdistarea}{f_{\mathit{dist}}^{\mathit{area}}}
+\newcommand{\numext}{\mathtt{NExt}}
+\newcommand{\ehside}{\mathtt{HExt}}
+\newcommand{\ewside}{\mathtt{WExt}}
+\newcommand{\xext}{\mathtt{XExt}}
+\newcommand{\yext}{\mathtt{YExt}}
+\newcommand{\used}{\mathit{used}}
+\newcommand{\samebar}{\mathit{same\_bar}}
+\newcommand{\sametype}{\mathit{same\_type}}
+\newcommand{\belowinbar}{\mathit{below\_in\_bar}}
+\newcommand{\aboveinbar}{\mathit{above\_in\_bar}}
+\newcommand{\nooverlapabove}{\mathit{above}}
+\newcommand{\nooverlapbelow}{\mathit{below}}
+\newcommand{\nooverlapleft}{\mathit{left}}
+\newcommand{\nooverlapright}{\mathit{right}}
+\newcommand{\aboveext}{\mathit{above\_ext}}
+\newcommand{\belowext}{\mathit{below\_ext}}
+\newcommand{\leftext}{\mathit{left\_ext}}
+\newcommand{\rightext}{\mathit{right\_ext}}
+\newcommand{\xcdiffpos}{\mathit{xc\_diff\_positive}}
+\newcommand{\ycdiffpos}{\mathit{yc\_diff\_positive}}
+\newcommand{\xcdiff}{\mathit{xc\_diff}}
+\newcommand{\ycdiff}{\mathit{yc\_diff}}
+
+\newcommand{\swarmsize}{\mathtt{swarm\_size}}
+\newcommand{\maxiter}{\mathtt{max\_iter}}
+\newcommand{\nvar}{\mathtt{NVars}}
+\newcommand{\lns}{Gecode+LNS\xspace}
+
+\newcommand{\rob}[1]{\textcolor{red}{~\textbf{ROB}: #1}}
+\newcommand{\vic}[1]{\textcolor{purple}{~\textbf{VIC}: #1}}
+\newcommand{\anna}[1]{\textcolor{blue}{~\textbf{ANNA}: #1}}
+
 
 \mainlinespacing{1.241} % line spacing in mainmatter, comment to default (1)
 
 \begin{document}
 	
-\frontmatter
-\input{front}
-
-\begin{abstract}	
-Max 2000 characters, strict.
-\end{abstract}
-
-\begin{dedication} % this is optional
-Optional. Max a few lines.
-\end{dedication}
-
-\begin{acknowledgements} % this is optional
-Optional. Max 1 page.
-\end{acknowledgements}
-
-%----------------------------------------------------------------------------------------
-\tableofcontents   
-\listoffigures     % (optional) comment if empty
-\lstlistoflistings % (optional) comment if empty
-%----------------------------------------------------------------------------------------
-
-\mainmatter
-
-%----------------------------------------------------------------------------------------
-\chapter{Introduction}
-\label{chap:introduction}
-%----------------------------------------------------------------------------------------
-
-Write your intro here.
-\sidenote{Add sidenotes in this way. They are named after the author of the thesis}
-
-\paragraph{Structure of the Thesis}
-
-\note{Racall to describe the structure of the paper}
-
-\part{First Part}
-
-\chapter{State of the art}
-
-I suggest referencing stuff as follows: \cref{fig:random-image} or \Cref{fig:random-image}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=.8\linewidth]{figures/random-image.pdf}
-    \caption{Some random image}
-    \label{fig:random-image}
-\end{figure}
-
-\section{Some cool topic}
-
-\part{Second Part}
-
-\chapter{Contribution}
-
-You may also put some code snippet (which is NOT float by default), eg: \cref{lst:random-code}.
-
-\lstinputlisting[float,language=Java,label={lst:random-code}]{listings/HelloWorld.java}
-
-\section{Fancy formulas here}
-
-%----------------------------------------------------------------------------------------
-% BIBLIOGRAPHY
-%----------------------------------------------------------------------------------------
-
-\backmatter
-
-\part*{}
-
-\nocite{*} % comment this to only show the referenced entries from the .bib file
-\bibliographystyle{alpha}
-\bibliography{phd-thesis}
-
+	\nobibliography*
+	
+	\frontmatter
+	\input{front}
+	
+	\begin{abstract}
+		\anna{TODO}
+		Max 2000 characters, strict.
+	\end{abstract}
+	
+	\begin{dedication} % this is optional
+		Optional. Max a few lines.
+	\end{dedication}
+	
+	\begin{acknowledgements} % this is optional
+		Optional. Max 1 page.
+	\end{acknowledgements}
+	
+	%----------------------------------------------------------------------------------------
+	\tableofcontents
+	\listoffigures     % (optional) comment if empty
+	\listoftables
+	\listofalgorithms
+	\lstlistoflistings % (optional) comment if empty
+	%----------------------------------------------------------------------------------------
+	
+	\mainmatter
+	
+	%----------------------------------------------------------------------------------------
+	\chapter{General introduction}
+	\input{chapters/general_introduction.tex}
+	
+	\chapter{Contribution}
+	This thesis is based on the following papers, listed in the order in which their contributions appear in the manuscript. The labels indicate the publication type, with C denoting conference and J journal:
+	
+	\begin{enumerate}
+		\item[\mbox{[C1]}]\phantomsection\label{paper_ppdp}
+		\bibentry{vitali2025fixture}.
+		
+		\item[\mbox{[C2]}]\phantomsection\label{paper_cp}
+		\bibentry{vitali2026constraint}.
+		
+		\item[\mbox{[J1]}]\phantomsection\label{paper_manufactoring_systems}
+		\bibentry{vitali2026fixture}.
+		
+		\item[\mbox{[J2]}]\phantomsection\label{paper_enginering_application_ai}
+		\bibentry{vitali2026heating}.
+	\end{enumerate}
+	
+	\part{Fixture Layout Optimization}
+	
+	\chapter{Background}
+	\input{chapters/pt1_background.tex}
+	
+	\chapter{Introduction}
+	\input{chapters/pt1_introduction.tex}
+	
+	\chapter{State of the art}
+	\input{chapters/pt1_state_of_the_art.tex}
+	
+	\chapter{Simplified problem formulation}
+	\input{chapters/pt1_chapter5.tex}
+	
+	\chapter{Considering fixture rotations and extrusion areas}
+	\input{chapters/pt1_chapter6.tex}
+	
+	\chapter{FlatZinc based Particle Swarm Optimization}
+	\input{chapters/pt1_chapter7.tex}
+	
+	\chapter{Conclusion}
+	\input{chapters/pt1_conclusion.tex}
+	
+	\part{Heating Process Optimization}
+	
+	\chapter{Background}
+	\input{chapters/pt2_background.tex}
+	
+	\chapter{Introduction}
+	\input{chapters/pt2_introduction.tex}
+	
+	\chapter{State of the art}
+	\input{chapters/pt2_state_of_the_art.tex}
+	
+	\chapter{Surrogate model}
+	\input{chapters/pt2_chapter12.tex}
+	
+	\chapter{Inverse model}
+	\input{chapters/pt2_chapter13.tex}
+	
+	\chapter{Optimization}
+	\input{chapters/pt2_chapter14.tex}
+	
+	\chapter{Conclusion}
+	\input{chapters/pt2_conclusion.tex}
+	
+	\chapter{Overall conclusion}
+	\input{chapters/overall_conclusion.tex}
+	
+	%----------------------------------------------------------------------------------------
+	% BIBLIOGRAPHY
+	%----------------------------------------------------------------------------------------
+	
+	\backmatter
+	
+	\part*{}
+	
+	\bibliographystyle{plainnat}
+	\bibliography{phd-thesis}
+	
 \end{document}

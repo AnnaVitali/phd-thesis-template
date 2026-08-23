@@ -1,0 +1,16 @@
+\label{chap:pt2_conclusion}
+
+This second part of the thesis presented a data-driven methodology for optimizing the heating phase in thermoforming, considering an industrial thermoforming machine and addressing the inverse problem of determining the machine parameters required to produce a desired core temperature distribution.
+
+
+The proposed approach relies on two neural network models. A surrogate model based on a Mesh Graph Neural Network (MGNN) is first developed to approximate a physics-based simulator, enabling fast and accurate prediction of the temperature distribution at the core of the sheet. The model achieves a speed-up of approximately $150\times$ with respect to the simulator, while maintaining a maximum average absolute error of $3.43~^\circ\mathrm{C}$ on the validation set and $9.65~^\circ\mathrm{C}$ on the test set.
+
+Building on this model, an inverse model is introduced to predict machine parameters from a target temperature distribution, while incorporating process cost considerations. The model significantly reduces process cost and processing time by favoring higher lamp power configurations that allow the desired thermal state to be reached more quickly. This strategy produces temperature distributions that qualitatively match the desired spatial patterns, but leads to higher predicted temperatures compared to the target distribution. Consequently, the maximum average absolute errors of $15.36~^\circ\mathrm{C}$ on the validation set and $22.99~^\circ\mathrm{C}$ on the test set reflect this trade-off between heating intensity and process duration.
+
+Since the model is trained on simulator-generated data, reducing these temperature deviations is important for improving its robustness when applied to real industrial scenarios, where operating conditions and sheet characteristics may vary significantly between cases.
+
+To this end, a two-stage optimization procedure based on the Adam optimizer is applied to refine the inverse model predictions at the individual sample level. The first stage focuses on reducing the temperature distribution error, while the second improves process cost without degrading thermal accuracy. After optimization, the maximum average absolute error is reduced to $3.15~^\circ\mathrm{C}$ on the validation set and $4.23~^\circ\mathrm{C}$ on the test set, demonstrating an improvement in temperature accuracy that, however, comes at the expense of reduced cost savings compared with the inverse model.
+
+The results highlight the complementary roles of the two components: the inverse model provides satisfactory temperature distributions and cost-efficient initial solutions, while the optimization step refines them by reducing temperature deviations, thereby improving generalization to varying conditions.
+
+The industrial partner has decided to start integrating the proposed strategy into thermoforming machine control workflows and is investigating its potential for extension to support other stages of the thermoforming process.

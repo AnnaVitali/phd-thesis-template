@@ -1,0 +1,161 @@
+\label{chap:pt1_background}
+
+In this chapter, we provide background information to clarify terms and concepts that may be unfamiliar to the reader, with the aim of facilitating the understanding of the work presented in this first part of the thesis.
+
+\section{Constraint Programming}
+Constraint Programming (CP) is a powerful paradigm for solving combinatorial problems. The basic idea behind CP is that the user specifies the constraints of the problem, while a general-purpose constraint solver is responsible for finding solutions that satisfy them~\cite{rossi2008constraint}.
+
+The three basic concept of a CP model, which are the basic building blocks of an Intelligent Decision Support System (IDSS), are ~\cite{wallace2020building}:
+\begin{itemize}
+	\item \textit{variables}, representing the decisions to be taken. Each variable is associated with a domain of possible values, where assigning a value corresponds to a specific choice;
+	
+	\item \textit{constraints}, ruling out incompatible choices and defining the relationships and conditions that must be satisfied among variables;
+	
+	\item \textit{parameters}, describing a problem instance and representing fixed input data that influence the formulation and solution of the problem without being decision variables.
+\end{itemize}
+
+A constraint is imposed on a set of variables and restricts the possible combinations of values that these variables can take. For example, consider two variables $x$ and $y$ and the constraint $x < y$. This constraint states that any assignment in which the value of $x$ is smaller than the value of $y$ is valid, whereas any assignment in which the value of $x$ is greater than or equal to the value of $y$ is invalid.
+
+Constraint solvers consider the problem  represented in terms of decision variables, parameters and constraints, and find an assignment to all the variables that satisfies the constraints while optimizing the value of an objective function, when specified.
+
+\section{Mixed Integer Programming}
+
+Mixed Integer Programming (MIP) is a mathematical optimization tecnique in which some decision variables are restricted to be discrete, while others are continuous~\cite{wolsey2007mixed}. The objective function and all constraints are linear, and the goal is to determine the values of the decision variables that optimize the objective while satisfying all constraints. A generic MIP problem can be formulated as:
+
+\begin{equation*}
+\begin{aligned}
+\max_{x} \quad & c^\top x \\
+\text{s.t.} \quad & Ax \leq b \\
+& x_i \in \mathbb{Z}, \quad \forall i \in I \\
+& x_j \in \mathbb{R}, \quad \forall j \notin I
+\end{aligned}
+\end{equation*}
+where $x$ is the vector of decision variables, $c$ is the vector of objective coefficients, $A$ is the constraint matrix, $b$ is the vector of constraint bounds, and $I$ denotes the subset of variables constrained to take integer values.
+
+MIP models are solved using constraint solvers capable of handling linear constraints together with integrality restrictions on variables. These solvers differ from those used in Constraint Programming (CP), which focus on propagating constraints over discrete variable domains.
+
+\section{Q-Learning}
+\label{sec:background_qlearning}
+In Q-learning, an agent learns through repeated interactions with the environment by estimating the action-value function $Q(s,a)$, which represents the expected \textit{cumulative discounted reward} obtained by executing action $a$ in state $s$ and subsequently following the optimal policy~\cite{watkins1992q}.
+
+After each interaction, the action-value function is updated according to the following rule~\cite{krose1995learning}:
+
+\begin{equation*}
+	Q(s_t,a_t) \leftarrow Q(s_t,a_t)
+	+ \alpha
+	\left[
+	r_{t+1}
+	+ \gamma \max_{a_{t+1}}Q(s_{t+1},a_{t+1})
+	- Q(s_t,a_t)
+	\right],
+\end{equation*}
+
+where $\alpha$ is the learning rate, which determines the influence of newly acquired information on the current estimate, and $\gamma$ is the discount factor, which balances the importance of immediate and future rewards. The quantity inside the square brackets is the \emph{temporal-difference (TD) error}, which measures the difference between the current estimate and the updated estimate obtained after observing the transition from state $s_t$ to state $s_{t+1}$. The term $r_{t+1}$ denotes the reward obtained after executing action $a_t$, while $\max_{a_{t+1}}Q(s_{t+1},a_{t+1})$ represents the estimated value of the best action available in the successor state.
+
+\section{Particle Swarm Optimization}
+\label{sec:background_pso}
+Particle Swarm Optimization (PSO) is an iterative computational technique inspired by swarm theory and originally motivated by studies of collective behavior in bird flocks~\cite{sun2022particle,liu2006solving}.
+
+PSO operates on a swarm of particles, each characterized by two vectors: the position $p_i$ and the velocity $v_i$. Each particle's position represents a candidate solution and is associated with a \textit{fitness} value that measures the solution quality.
+At each iteration $t=1,2,\dots$ the particles explore the search space by updating their velocities and positions according to the following equations:
+
+\begin{align*}
+	v_i^{(t+1)} &= w \, v_i^{(t)}
+	+ c_1 r_1 \big( p^*_{i} - p_i^{(t)} \big) 
+	+ c_2 r_2 \big( g^* - p_i^{(t)} \big) \\
+	p_i^{(t+1)} &= p_i^{(t)} + v_i^{(t+1)}
+\end{align*}
+
+where:
+
+\begin{itemize}
+	\item $w$ is the \emph{inertia weight}, controlling how much of the previous velocity is retained;
+	\item $c_1$ is the \emph{cognitive coefficient}, guiding the particle toward its \textit{personal best position} $p^*_{i}$;
+	\item $c_2$ is the \emph{social coefficient}, guiding particles toward the \textit{global best position} $g^*$ of the swarm;
+	\item $r_1$ and $r_2$ are random numbers typically drawn from a uniform distribution in $[0,1]$, introducing stochasticity into the cognitive and social components, respectively.
+\end{itemize}
+
+\section{Principal moments of inertia}
+\label{sec:principal_moment_of_inertia}
+To maximize the stability of the workpiece through fixture placement, the \textit{principal moments} of inertia of the fixture layout system can be analyzed.
+
+The moment of inertia is a geometric property that quantifies a structure’s resistance to bending and torsional forces. It is computed from the distribution of mass relative to a given axis and plays a crucial role in determining the stiffness of structural elements under load. Higher moments of inertia indicate greater resistance to deformation, making this quantity a key factor in the design of fixtures that minimize workpiece deflection during machining operations~\cite{kalkan2013deflection,bischoff2011equivalent}.
+
+To compute the principal moments of inertia of a rectangular fixture system~\cite{belluzzi1961scienza,coultas1925theory,hibbeler2006structural}, each fixture can be represented as a polygon $i$ of $m$ vertices $(x_{i,1}, y_{i,1}), \ldots, (x_{i,m}, y_{i,m})$ with area $A_i$, centroid coordinates $(cx_{i}, cy_{i})$ and rotation angle $\alpha_i$. First we compute the \textit{absolute moments} of inertia of each polygon with respect to the global coordinate system:
+
+\begin{align*}
+	J'_{x,i} 
+	&= \tfrac{1}{12} \sum_{j=1}^{m} 
+	(y_{i,j}^2 + y_{i,j}y_{i,j+1} + y_{i,j+1}^2)(x_{i,j}y_{i,j+1} - x_{i,j+1}y_{i,j}) \\
+	%
+	J'_{y,i} 
+	&= \tfrac{1}{12} \sum_{j=1}^{m} 
+	(x_{i,j}^2 + x_{i,j}x_{i,j+1} + x_{i,j+1}^2) (x_{i,j}y_{i,j+1} - x_{i,j+1}y_{i,j}) \\
+	%
+	J'_{xy,i} 
+	&= \tfrac{1}{24} \sum_{j=1}^{m} 
+	(x_{i,j}y_{i,j+1} + 2x_{i,j}y_{i,j} + 2x_{i,j+1}y_{i,j+1} + x_{i,j+1}y_{i,j}) (x_{i,j}y_{i,j+1} - x_{i,j+1}y_{i,j}).
+\end{align*}
+
+The moments of inertia referred to the centroid of each polygon are then computed as:
+
+\begin{align*}
+	J''_{x,i}  = J'_{x,i}  - A_i\,cy_{i}^2, \qquad
+	J''_{y,i}  = J'_{y,i}  - A_i\,cx_{i}^2, \qquad
+	J''_{xy,i} = J'_{xy,i} - A_i\,cx_{i}\,cy_{i}.
+\end{align*}
+
+
+Since a polygon can be rotated by an angle $\alpha_i$, the corresponding rotated moments are:
+
+\begin{align*}
+	J_{x,i} &= J''_{x,i}\cos^2\alpha_i + J''_{y,i}\sin^2\alpha_i - 2J''_{xy,i}\sin\alpha_i\cos\alpha_i,\\
+	J_{y,i} &= J''_{x,i}\sin^2\alpha_i + J''_{y,i}\cos^2\alpha_i + 2J''_{xy,i}\sin\alpha_i\cos\alpha_i,\\
+	J_{xy,i} &= (J''_{x,i} - J''_{y,i})\sin\alpha_i\cos\alpha_i + J''_{xy,i}(\cos^2\alpha_i - \sin^2\alpha_i).
+\end{align*}
+
+
+The total moments of inertia with respect to the global axes are then computed as:
+
+\begin{align*}
+	J_x &= \sum_{i=1}^{n} J_{x,i} + A_i(cy_{i} - g_y)^2, \qquad
+	J_y = \sum_{i=1}^{n} J_{y,i} + A_i(cx_{i} - g_x)^2,\\
+	J_{xy} &= \sum_{i=1}^{n} J_{xy,i} + A_i(cx_{i} - g_x)(cy_{i} - g_y)
+\end{align*}
+
+\noindent where $g_x$ and $g_y$ denote the coordinates of the overall centroid of the system, computed as:
+
+\begin{align*}
+	g_x = \frac{\sum_{i=1}^{n} A_i\, cx_{i}}{A}, \qquad
+	g_y = \frac{\sum_{i=1}^{n} A_i\, cy_{i}}{A}
+\end{align*}
+
+\noindent where $A = \sum_{i=1}^{n} A_i$ is the total area.
+
+The principal moments of inertia of the overall system are obtained by first evaluating:
+
+\begin{align*}
+	J'_{xg} = J_x - A\, g_y^2, \qquad
+	J'_{yg} = J_y - A\, g_x^2, \qquad
+	J'_{xyg} = J_{xy} - A\, g_x\, g_y,
+\end{align*}
+
+\noindent and then computing:
+
+\begin{align*}
+	J_\xi &= \tfrac{1}{2}
+	\left(
+	(J'_{xg} + J'_{yg})
+	- \sqrt{(J'_{xg} - J'_{yg})^2 + 4(J'_{xyg})^2}\,
+	\right), \\%[4pt]
+	J_\eta &= \tfrac{1}{2}
+	\left(
+	(J'_{xg} + J'_{yg})
+	+ \sqrt{(J'_{xg} - J'_{yg})^2 + 4(J'_{xyg})^2}\,
+	\right).
+\end{align*}
+
+
+Layouts that provide good stability for the workpiece are those maximizing the sum $J_\xi + J_\eta$.
+
+
