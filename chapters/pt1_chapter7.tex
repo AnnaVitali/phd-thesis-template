@@ -83,31 +83,31 @@ In Flatzinc-based PSO, each violation function measures the distance from the fe
 
 \[\max\left(|x^y - z|, 0\right)\].
 
-The FlatZinc-based PSO must assign a value to each decision variable identified in the invariant graph $\mathcal{G}$ derived from the MiniZinc model. Therefore, the position of each particle $s \in [1..\swarmsize]$ is represented by an array $p_s$ of dimension $d$, where $d$ is the number of decision variables in $\mathcal{G}$.
+The FlatZinc-based PSO must assign a value to each decision variable identified in the invariant graph $G$ derived from the MiniZinc model. Therefore, the position of each particle $s \in [1..\swarmsize]$ is represented by an array $p_s$ of dimension $d$, where $d$ is the number of decision variables in $G$.
 
-Once the particle position $p_s$ has been determined, the values of the defined variables are computed by traversing the constraints in $\mathcal{G}$ according to their topological order, and the violation of each constraint is evaluated using its corresponding violation function.
+Once the particle position $p_s$ has been determined, the values of the defined variables are computed by traversing the constraints in $G$ according to their topological order, and the violation of each constraint is evaluated using its corresponding violation function.
 
-The overall constraint violation associated with particle $p_s$ is computed as the sum of the violations of all constraints represented in $\mathcal{G}$:
+The overall constraint violation associated with particle $p_s$ is computed as the sum of the violations of all constraints represented in $G$:
 
 \[
 cv(p_s)=\sum_{c\in\mathcal{C}}cv_c(p_s),
 \]
 
-\noindent where $\mathcal{C}$ denotes the set of constraints represented in the invariant graph $\mathcal{G}$, and $cv_c(p_s)$ denotes the violation associated with constraint $c$.
+\noindent where $C$ denotes the set of constraints represented in the invariant graph $G$, and $cv_c(p_s)$ denotes the violation associated with constraint $c$.
 
 \begin{algorithm}[htbp]
 	\footnotesize
 	\caption{FlatZinc-Based Particle Swarm Optimization initialization phase}
 	\label{alg:fzn_pso_pt1}
 	\begin{algorithmic}[1]
-		\Require Swarm size $\swarmsize$, maximum number of iterations $\maxiter$, inertia weight $w$, cognitive coefficient $c_1$, social coefficient $c_2$, invariant graph $\mathcal{G}$
+		\Require Swarm size $\swarmsize$, maximum number of iterations $\maxiter$, inertia weight $w$, cognitive coefficient $c_1$, social coefficient $c_2$, invariant graph $G$
 		\Ensure Best solution found $p^*$
 		
-		\State Let $d$ be the number of variables identified in $\mathcal{G}$
+		\State Let $d$ be the number of variables identified in $G$
 		\label{alg:start_init}
 		
 		\For{$s=1$ to $\swarmsize$}
-		\State Randomly initialize $p_s$ within the bounds of the variables in $\mathcal{G}$
+		\State Randomly initialize $p_s$ within the bounds of the variables in $G$
 		\State Randomly initialize velocity vector $v_s$
 		\State $k_s\gets0$
 		\label{alg:end_init}
@@ -196,11 +196,11 @@ cv(p_s)=\sum_{c\in\mathcal{C}}cv_c(p_s),
 	\end{algorithmic}
 \end{algorithm}
 
-Algorithms~\ref{alg:fzn_pso_pt1} and~\ref{alg:fzn_pso_pt2} present the pseudocode of the FlatZinc-based PSO. The algorithm takes as input the swarm size $\swarmsize$, the maximum number of iterations $\maxiter$, the inertia weight $w$, the cognitive coefficient $c1$, the social coefficient $c2$, and the invariant graph $\mathcal{G}$ of the FlatZinc model. It returns the best solution found by the swarm, denoted by $p^*$.
+Algorithms~\ref{alg:fzn_pso_pt1} and~\ref{alg:fzn_pso_pt2} present the pseudocode of the FlatZinc-based PSO. The algorithm takes as input the swarm size $\swarmsize$, the maximum number of iterations $\maxiter$, the inertia weight $w$, the cognitive coefficient $c1$, the social coefficient $c2$, and the invariant graph $G$ of the FlatZinc model. It returns the best solution found by the swarm, denoted by $p^*$.
 
-At the beginning of the initialization phase in lines~\ref{alg:start_init}--\ref{alg:end_init} of Algorithm~\ref{alg:fzn_pso_pt1}, each particle is initialized from the invariant graph $\mathcal{G}$ by considering the number of decision variables $d$ and their corresponding bounds. The particle position $p_s$ and velocity $v_s$ are randomly initialized, and a stagnation counter $k_s$ is set to zero. The counter tracks the number of consecutive iterations in which the particle fails to improve its personal best. Since strict adherence to Deb's rules can lead to premature convergence, the particle is reinitialized when the counter reaches a predefined threshold, promoting exploration and helping the search escape local optima.
+At the beginning of the initialization phase in lines~\ref{alg:start_init}--\ref{alg:end_init} of Algorithm~\ref{alg:fzn_pso_pt1}, each particle is initialized from the invariant graph $G$ by considering the number of decision variables $d$ and their corresponding bounds. The particle position $p_s$ and velocity $v_s$ are randomly initialized, and a stagnation counter $k_s$ is set to zero. The counter tracks the number of consecutive iterations in which the particle fails to improve its personal best. Since strict adherence to Deb's rules can lead to premature convergence, the particle is reinitialized when the counter reaches a predefined threshold, promoting exploration and helping the search escape local optima.
 
-Once the first position is assigned, each particle is evaluated in terms of objective value and constraint violations, as described in line~\ref{alg:init_eval} of Algorithm~\ref{alg:fzn_pso_pt1}. In this phase, the solution proposed by the particle is injected into the invariant graph $\mathcal{G}$ and the values of the defined variables as well as the constraint violations are computed.
+Once the first position is assigned, each particle is evaluated in terms of objective value and constraint violations, as described in line~\ref{alg:init_eval} of Algorithm~\ref{alg:fzn_pso_pt1}. In this phase, the solution proposed by the particle is injected into the invariant graph $G$ and the values of the defined variables as well as the constraint violations are computed.
 
 At the end of the evaluation (lines~\ref{alg:start_init_update}--\ref{alg:end_init_update} of Algorithm~\ref{alg:fzn_pso_pt1}), the personal best position $p_s^*$ of each particle is set to its first evaluated solution, and the global best solution $p^*$ is updated considering the best candidate found among all particles.
 

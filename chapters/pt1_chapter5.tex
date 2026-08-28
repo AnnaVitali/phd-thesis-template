@@ -94,7 +94,7 @@ $$x_{i} \neq x_{i+1} \implies x_{i} + \wfix_{t_{i}} + \wmin \leq x_{i+1}$$
 
 \subsection{Objective function}
 \label{sec:first_objective_function}
-As illustrated in Chapter~\ref{chap:pt1_background}, is possible to maximize workpiece stability by maximizing the principal moments of inertia. Consequently, the ideal objective function would be: 
+As discussed in Chapter~\ref{chap:pt1_background}, workpiece stability can be improved by maximizing the principal moments of inertia of the fixture layout. Consequently, the ideal objective function can be defined as:
 
 \begin{equation}
 	\finer = J_\xi + J_\eta
@@ -102,7 +102,7 @@ As illustrated in Chapter~\ref{chap:pt1_background}, is possible to maximize wor
 \end{equation}
 where $J_\xi$ and $J_\eta$ are the principal moments of inertia defined in Section~\ref{sec:principal_moment_of_inertia}.
 
-However, computing $J_\xi$ and $J_\eta$ involves nonlinear operations such as squaring, square roots, and transcendental functions (sine and cosine), which are difficult to handle efficiently with CP solvers~\cite{leyffer2009applications}.
+However, computing $J_\xi$ and $J_\eta$ involves nonlinear operations such as squaring and square roots, as well as transcendental functions (sine and cosine) when fixture rotation is considered to determine the transformed fixture coordinates. These operations are difficult to handle efficiently with CP solvers~\cite{leyffer2009applications}.
 
 An analysis of the moment of inertia for different fixture layouts, together with previous studies on workpiece stability~\cite{kaya2006machining,roy1999geometric,menassa1991optimization,meyer1997fixture,wallack1997planning}, indicates that workpiece stability increases when fixtures are placed far apart from one another and close to the workpiece perimeter. Based on these observations, we devised an alternative objective function, $\fdistsemi$, that maximizes the sum of the pairwise Manhattan distances between fixture centroids, augmented by the semi-perimeter of the selected fixtures.
 
@@ -115,7 +115,7 @@ are the coordinates of the centroid of the $i$-th placed fixture, having type $t
 
 \section{Case study}
 \label{sec:case_study}
-We evaluated our approach on a real case where the workpiece is a stair step of a spiral staircase. The workpiece area, shown in Figure.~\ref{fig:stairstepworkpiece}, is defined by the following inequalities:
+We evaluated our approach on a real case where the workpiece is a stair step of a spiral staircase shown in Figure~\ref{fig:stairstepworkpiece}. The workpiece area, is defined by the following inequalities:
 \begin{align*}
 	(a):~ x &\geq 20 & (d):~ x &\leq 689\\
 	(b):~ y &\leq 0.20x + 257.91 & (e):~ y &\geq 0.54x + -356.21\\
@@ -151,7 +151,7 @@ In Table~\ref{tab:solvercomparison_momentobj} the result for the Gecode solver a
 
 When using $\fdistsemi$ as the objective function, Table~\ref{tab:solvercomparison_distobj} shows that all solvers are able to find at least one feasible solution for every value of $\nmax$, with Chuffed and Gurobi solving all instances to optimality. Overall, the best performance is achieved by Chuffed, which is able to reach the optimal solutions in less time than Gurobi.
 
-In the tables the optimal solutions found are reported in bold, the $\fdistsemi$ objective function can admit multiple equivalent optimal solutions; however, these solutions may lead to different values of $\finer$, due to the high sensitivity of the moments of inertia to small fixture displacements, as reported for $\nmax \in {3,4,5}$ in Table~\ref{tab:solvercomparison_distobj}.
+In the tables the optimal solutions found are reported in bold and the $\fdistsemi$ objective function can admit multiple equivalent optimal solutions; however, these solutions may lead to different values of $\finer$, due to the high sensitivity of the moments of inertia to small fixture displacements, as reported for $\nmax \in {3,4,5}$ in Table~\ref{tab:solvercomparison_distobj}.
 
 Comparing the two tables, we can observe that solutions generated using $\fdistsemi$ generally achieve lower $\finer$ values, but can be computed significantly faster, making this objective function particularly suitable for large workpieces or instances requiring a high number of fixtures. Indeed, comparing the runtimes obtained by Gurobi with the two objective functions shows that solving the problem with $\fdistsemi$ is on average more than 150 times faster than using $\finer$.
 

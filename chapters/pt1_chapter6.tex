@@ -20,11 +20,13 @@ To clarify layout feasibility, Figure~\ref{fig:constraints_axample} illustrates 
 	\label{fig:constraints_axample}
 \end{figure}
 
-To address the complete problem, we extend the CP model introduced in Section~\ref{sec:first_cp_model} to handle the new constraint. We also formulate a new Mixed Integer Programming (MIP) model and propose a Q-learning based algorithm, comparing the three approaches on real-world test cases.
+To address the complete problem, we extend the CP model introduced in Section~\ref{sec:first_cp_model} to handle the new constraint. We also formulate a new Mixed Integer Programming (MIP) model and compare the performance of the two formulations on real-world test cases.
 
-Both the CP and MIP models can be solved using appropriate solvers to obtain feasible layout. However, similarly to the Q-learning algorithm, neither approach accounts for fixture rotations, since allowing rotation angles other than multiples of $90^\circ$ significantly increases the number of possible configurations and makes the problem substantially harder to solve.
+Both the CP and MIP models can be solved using appropriate solvers to obtain feasible layout. However, neither approach accounts for fixture rotations, since allowing rotation angles other than multiples of $90^\circ$ significantly increases the number of possible configurations and makes the problem substantially harder to solve.
 
 Moreover, inclined fixtures complicate overlap checking and, in CP solvers, require geometric approximations due to the lack of native support for continuous variables. For these reasons, fixture rotations are handled in a final refinement stage based on a Particle Swarm Optimization (PSO) meta-heuristic, which iteratively improves the initial solution, provided by the different approaches.
+
+The introduction of rotation at this stage provides additional flexibility in fixture placement, enlarging the set of feasible placements and allowing fixture centroids to be positioned closer to workpiece boundaries or areas to be extruded.
 
 \section{Parameters and objective function}
 \label{sec:second_parameters}
@@ -50,8 +52,6 @@ To facilitate the solving process, areas to be extruded are approximated by thei
 
 Compared with the simplified formulation, we also introduce in the parameters the minimum vertical distance between fixtures. This parameter was previously omitted to allow the placement of multiple fixtures beneath the workpiece and to facilitate the comparison between $\fdistsemi$ and $\finer$ for increasing values of $\nmax$ (see Section~\ref{sec:case_study}).
 
-To evaluate the quality of a fixture layout, two objective functions are considered $\fdistarea$ and $\finer$. 
-
 The CP and MIP models optimize the objective function $\fdistarea$, which maximizes the sum of the pairwise Manhattan distances between fixture centroids, augmented by the total area of the selected fixtures:
 
 \begin{equation}
@@ -61,7 +61,7 @@ The CP and MIP models optimize the objective function $\fdistarea$, which maximi
 
 We adopt the area term instead of the semi-perimeter to prioritize fixtures with larger contact surfaces. We empirically verified that this approach provides a stronger surrogate for the inertia objective in more complex geometries. In the experiments of Section~\ref{sec:evaluation}, the Pearson correlation  coefficient~\cite{benesty2009pearson} between $\fdistarea$ and $\finer$ when using the area-based formulation is higher (0.79) than the semi-perimeter-based one (0.39).
 
-Unlike the CP and MIP models, the Q-learning algorithm is not affected by the nonlinear operations required to evaluate $\finer$. Consequently, it does not rely on the alternative objective function; instead, it directly incorporates the moments of inertia into the reward returned by the environment.
+Unlike the CP and MIP models, PSO is not affected by the nonlinear operations required to evaluate $\finer$. Consequently, it does not rely on the alternative objective function; instead, it directly incorporates the moments of inertia of the fixture layout into the optimization algorithm.
 
 \section{CP model}
 \label{sec:cp_model}
@@ -79,7 +79,7 @@ The fixture placement and type are represented by three arrays of integer decisi
 
 For each fixture type $i \in [1..\ntypes]$, an integer variable $n_i \in [0..\nfix_i]$ denotes the number of selected fixtures of type $i$, and a variable $n \in [\nmin..\nmax]$ represents the total number of selected fixtures.
 
-Compared with the formulation presented in~\ref{sec:first_cp_model}, the arrays $x$ and $y$ and the variable $n$ are now bounded by $\nmax$, rather than by $\nfix$, since the maximum number of fixtures that can be placed is known for each workpiece and $\nmax \leq \nfix$ this tighter bound reduces the search space.
+Compared with the formulation presented in Section~\ref{sec:first_cp_model}, the arrays $x$ and $y$ and the variable $n$ are now bounded by $\nmax$, rather than by $\nfix$, since the maximum number of fixtures that can be placed is known for each workpiece and $\nmax \leq \nfix$ this tighter bound reduces the search space.
 
 
 \subsection{Constraints}
@@ -140,19 +140,13 @@ y \oplus \yext,\;
 To enforce the minimum \emph{vertical} distance $ \hmin $ between fixtures placed on the same bar, and the minimum \emph{horizontal} distance $ \wmin $ between fixtures placed on different bars we impose:
 
 \begin{equation*}
-	\begin{aligned}
-		&\forall\,1 \le i < j \le n:\quad
-		\begin{cases}
-			y_i + \hfix_{t_i} + \hmin \le y_j
-			\\[-0.2ex]
-			\quad\vee\quad
-			y_j + \hfix_{t_j} + \hmin \le y_i,
-			& \text{if } cx_i = cx_j
-			\\[1ex]
-			x_i + \wfix_{t_i} + \wmin \le x_j,
-			& \text{if } cx_i \ne cx_j
-		\end{cases}
-	\end{aligned}
+	\forall 1 \le i < j \le n: \quad
+	\begin{cases}
+		y_i + \hfix_{t_i} + \hmin \le y_j
+		\;\vee\;
+		y_j + \hfix_{t_j} + \hmin \le y_i, & \text{if } cx_i = cx_j,\\[1ex]
+		cx_i + \wfix_{t_i} + \wmin \le cx_j, & \text{if } cx_i \neq cx_j.
+	\end{cases}
 \end{equation*}
 
 \noindent where $cx_i$ denotes the $x$-coordinate of the centroid of fixture $ i $. Centroid coordinates are used instead of lower-left coordinates because fixtures may be wider than their supporting bar: while $ x_i $ may fall outside the horizontal span of the bar, the centroid $ cx_i $ always lies within it.
@@ -269,161 +263,161 @@ To break symmetries, we impose an ordering on fixture types: $t_i \ge t_{i+1}$ f
 
 \noindent We linearize $\fdistarea$ with a big-M formulation unfolding each term of the form $u=|v|$ into: $$u \ge v ~\wedge~ u \ge -v ~\wedge~ u \leq v + M (1 - b)  ~\wedge~ u \leq -v + M b~\wedge~ b\in\{0,1\}.$$
 
-\section{Q-learning algorithm}
-
-The solutions obtained using the CP and MIP models are compared with those produced by a Q-learning based algorithm. This comparison provides insight into the differences between the layouts generated by exact optimization methods and those obtained through a learning-based strategy.
-
-In Q-learning an agent estimates the action-value function $Q(s,a)$, which represents the expected \emph{cumulative discounted reward} associated with taking action $a$ in state $s$ and subsequently following the optimal policy $\pi$~\cite{watkins1992q}.
-
-In our formulation, the environment corresponds to the considered workpiece. At each decision step, the state of the environment is defined as:
-
-\[
-s_t=(n_t,fix_t),
-\]
-
-\noindent where $n_t$ is the number of fixtures already placed at step $t$, while
-$fix_t=[fix_t^{1},\,fix_t^{2},\\ \,\ldots,\,fix_t^{\ntypes}]$
-is an integer array of size $\ntypes$, whose components denote the remaining availability of the different fixture types.
-
-An action consists of selecting a fixture type together with a feasible centroid position:
-
-\[
-a_t=(type_t,(cx_t,cy_t)).
-\]
-
-The fixture centroid is used as the reference point for positioning instead of the lower-left corner adopted in the CP and MIP models, since it simplifies both the enforcement of the horizontal and vertical safety-distance constraints, as described in Section~\ref{sec:second_cp_cons}, and the identification of feasible actions.
-
-The action to be executed is selected according to an \textit{$\epsilon$-greedy policy}~\cite{sutton1998reinforcement}. At each decision step, the agent selects the action with the highest estimated $Q$-value with probability $1-\epsilon$, whereas with probability $\epsilon$ it selects a random action, balancing exploration and exploitation of the environment.
-
-The Q-learning based procedure adopted for fixture layout optimization is described in Algorithm~\ref{alg:qlearning_fixtures}. The algorithm takes as inputs the number of training episodes $E$, the maximum number of steps per episode $T$, the learning rate $\alpha$, the discount factor $\gamma$, the exploration rate $\epsilon$, and the exploration decay factor $\rho$. The output is the best feasible fixture layout $\mathcal{L}^{*}$ obtained by applying the learned policy $\pi$.
-
-\begin{algorithm}[ht]
-	\footnotesize
-	\caption{Q-learning for Fixture Layout Optimization}
-	\label{alg:qlearning_fixtures}
-	\begin{algorithmic}[1]
-		
-		\Require Number of episodes $E$, maximum number of steps per episode $T$, learning rate $\alpha$, discount factor $\gamma$, exploration rate $\epsilon$, exploration decay factor $\rho$
-		\Ensure Best feasible layout $\mathcal{L}^*$
-		
-		\State Compute all candidate centroid positions
-		\label{alg:q_init_start}
-		\State Remove centroid positions violating the constraints and set $\mathcal{A}(s_1)$
-		\State Initialize $Q(s,a)=0$
-		\State $\mathcal{L}^* \gets \emptyset$
-		\label{alg:q_init_end}
-		
-		\For{$ep=1$ to $E$}
-		\label{alg:q_iteration_start}
-		
-		\For{$t=1$ to $T$}
-		
-		% \State Compute the feasible action set $\mathcal{A}(s_t)$
-		
-		\If{$\mathcal{A}(s_t)=\emptyset$}
-		\State \textbf{break}
-		\EndIf
-		\label{alg:q_iteration_end}
-		
-		\If{random number $<\epsilon$} \Comment{exploration}
-		\label{alg:q_policy_start}
-		\State Select a random feasible action
-		$a_t \in \mathcal{A}(s_t)$
-		\Else \Comment{exploitation}
-		\State Select
-		$a_t=\arg\max\limits_{a\in\mathcal{A}(s_t)}Q(s_t,a)$
-		\EndIf
-		
-		\State Perform action $a_t$ by placing the selected fixture
-		\label{alg:q_policy_end}
-		
-		\State Recompute the feasible action set $\mathcal{A}(s_{t+1})$ 
-		\label{alg:q_reset_action}
-		
-		\State Compute reward $r_t$ according to Eq.~\ref{eq:reward}
-		\label{alg:q_update_start}
-		
-		\State Observe successor state $s_{t+1}$
-		
-		\State $Q(s_t,a_t) \gets Q(s_t,a_t) + \alpha \left[r_{t+1} + \gamma \max_{a_{t+1}}Q(s_{t+1},a_{t+1}) - Q(s_t,a_t) \right]$
-		
-		\State $s_t \gets s_{t+1}$
-		\State Update $\pi$ with $a_t$
-		\label{alg:q_update_end}
-		
-		\EndFor
-		
-%		\If{$\mathcal{L}_{ep}$ is better than $\mathcal{L}^*$}
-%		\label{alg:q_new_ep_start}
-%		\State $\mathcal{L}^* \gets \mathcal{L}_{ep}$
+%\section{Q-learning algorithm}
+%
+%The solutions obtained using the CP and MIP models are compared with those produced by a Q-learning based algorithm. This comparison provides insight into the differences between the layouts generated by exact optimization methods and those obtained through a learning-based strategy.
+%
+%In Q-learning an agent estimates the action-value function $Q(s,a)$, which represents the expected \emph{cumulative discounted reward} associated with taking action $a$ in state $s$ and subsequently following the optimal policy $\pi$~\cite{watkins1992q}.
+%
+%In our formulation, the environment corresponds to the considered workpiece. At each decision step, the state of the environment is defined as:
+%
+%\[
+%s_t=(n_t,fix_t),
+%\]
+%
+%\noindent where $n_t$ is the number of fixtures already placed at step $t$, while
+%$fix_t=[fix_t^{1},\,fix_t^{2},\\ \,\ldots,\,fix_t^{\ntypes}]$
+%is an integer array of size $\ntypes$, whose components denote the remaining availability of the different fixture types.
+%
+%An action consists of selecting a fixture type together with a feasible centroid position:
+%
+%\[
+%a_t=(type_t,(cx_t,cy_t)).
+%\]
+%
+%The fixture centroid is used as the reference point for positioning instead of the lower-left corner adopted in the CP and MIP models, since it simplifies both the enforcement of the horizontal and vertical safety-distance constraints, as described in Section~\ref{sec:second_cp_cons}, and the identification of feasible actions.
+%
+%The action to be executed is selected according to an \textit{$\epsilon$-greedy policy}~\cite{sutton1998reinforcement}. At each decision step, the agent selects the action with the highest estimated $Q$-value with probability $1-\epsilon$, whereas with probability $\epsilon$ it selects a random action, balancing exploration and exploitation of the environment.
+%
+%The Q-learning based procedure adopted for fixture layout optimization is described in Algorithm~\ref{alg:qlearning_fixtures}. The algorithm takes as inputs the number of training episodes $E$, the maximum number of steps per episode $T$, the learning rate $\alpha$, the discount factor $\gamma$, the exploration rate $\epsilon$, and the exploration decay factor $\rho$. The output is the best feasible fixture layout $\mathcal{L}^{*}$ obtained by applying the learned policy $\pi$.
+%
+%\begin{algorithm}[ht]
+%	\footnotesize
+%	\caption{Q-learning for Fixture Layout Optimization}
+%	\label{alg:qlearning_fixtures}
+%	\begin{algorithmic}[1]
+%		
+%		\Require Number of episodes $E$, maximum number of steps per episode $T$, learning rate $\alpha$, discount factor $\gamma$, exploration rate $\epsilon$, exploration decay factor $\rho$
+%		\Ensure Best feasible layout $\mathcal{L}^*$
+%		
+%		\State Compute all candidate centroid positions
+%		\label{alg:q_init_start}
+%		\State Remove centroid positions violating the constraints and set $\mathcal{A}(s_1)$
+%		\State Initialize $Q(s,a)=0$
+%		\State $\mathcal{L}^* \gets \emptyset$
+%		\label{alg:q_init_end}
+%		
+%		\For{$ep=1$ to $E$}
+%		\label{alg:q_iteration_start}
+%		
+%		\For{$t=1$ to $T$}
+%		
+%		% \State Compute the feasible action set $\mathcal{A}(s_t)$
+%		
+%		\If{$\mathcal{A}(s_t)=\emptyset$}
+%		\State \textbf{break}
 %		\EndIf
-		\State $\epsilon \gets \rho\,\epsilon$
-		\label{alg:q_new_ep_start}
-		\State Reset the environment to the initial state $s_1$
-		\State Reset the action space to $\mathcal{A}(s_1)$
-		\label{alg:q_new_ep_end}
-		
-		\EndFor
-		
-		\State Evaluate the learned policy $\pi$
-		\label{alg:q_evaluate_start}
-		\State \textbf{return} $\mathcal{L}^*$
-		\label{alg:q_evaluate_end}
-		
-	\end{algorithmic}
-\end{algorithm}
-
-Given the fixture dimensions, it is known \emph{a priori} that some positions within the workpiece cannot accommodate a fixture, particularly those near the workpiece boundary or close to areas to be extruded. During the initialization phase, in lines~\ref{alg:q_init_start}--\ref{alg:q_init_end} of Algorithm~\ref{alg:qlearning_fixtures}, centroid positions that would result in fixtures extending outside the workpiece boundaries or overlapping areas to be extruded are removed from the set of possible actions $\mathcal{A}(s_t)$, considering the dimensions of the smallest fixture as reference.
-
-\begin{figure}[t]
-	\centering
-	\includegraphics[width=0.5\linewidth]{figures/q_learning_actions.png}
-	\caption{Example of the available actions for a given workpiece. Green dots represent centroid positions where both square and rectangular fixtures can be placed, whereas red dots represent positions where only rectangular fixtures can be placed. The workpiece area is highlighted in light gray, while the areas to be extruded are highlighted in red.}
-	\label{fig:q_learning_actions}
-\end{figure}
-
-Figure~\ref{fig:q_learning_actions} shows an example of the set of feasible actions for a given workpiece, considering two available fixture types: square and rectangular. Green dots indicate centroid positions where both fixture types can be placed, whereas red dots indicate positions where only rectangular fixtures can be placed.
-
-The algorithm iterates over the training episodes and the corresponding steps. An episode terminates when no feasible actions remain or the maximum number of steps is reached, as reported in lines~\ref{alg:q_iteration_start}--\ref{alg:q_iteration_end} of Algorithm~\ref{alg:qlearning_fixtures}.
-
-The agent selects actions according to the $\epsilon$-greedy policy (lines~\ref{alg:q_policy_start}--\ref{alg:q_policy_end} of Algorithm~\ref{alg:qlearning_fixtures}), balancing the exploration of new placements with the exploitation of previously learned actions.
-
-Each action selected is evaluated through the reward associated with the transition from $s_t$ to $s_{t+1}$. The reward function combines the improvement obtained in the moment of inertia with additional terms promoting layouts composed of a larger number of fixtures, larger fixture dimensions, and increased spatial separation between fixtures:
-
-\begin{equation}
-	r_{t+1}
-	=
-	\lambda_{\mathrm{iner}}\,\Delta\finer
-	+
-	\lambda_n n_{t+1}^{2}
-	+
-	\lambda_d\bar d
-	+
-	\begin{cases}
-		b_{\nmin}, & \text{if } n_{t+1}\geq\nmin,\\
-		0, & \text{otherwise}.
-	\end{cases}
-	\label{eq:reward}
-\end{equation}
-
-\noindent in the equation: 
-\begin{itemize} 
-	\item $\Delta\finer$ is the variation of $\finer$ between the previous and current states;
-	\item $n_{t+1}$ is the number of fixtures in the resulting layout. The quadratic term promotes layouts with a larger number of fixtures;
-	\item $\bar d$ is the average Euclidean distance between the newly placed fixture and the previously placed fixtures,  promoting layouts with a larger spatial separation;
-	\item $\lambda_{\finer}$, $\lambda_n$, and $\lambda_d$ are weighting coefficients balancing the contribution of the different reward components;
-	\item $b_{\nmin}$ is an additional feasibility bonus assigned when the minimum required number of fixtures, $\nmin$, has been placed.
-\end{itemize}
-
-After each fixture placement, all candidate centroid positions that no longer satisfy the safety-distance constraints are removed from the feasible action set, as reported in line~\ref{alg:q_reset_action} of Algorithm~\ref{alg:qlearning_fixtures}. Consequently, the action set progressively shrinks as the layout is constructed, ensuring that all geometric constraints are satisfied.
-
-The only constraint that cannot be enforced by restricting the feasible action set is the placement of the minimum number of required fixtures $\nmin$. For this reason, the feasibility bonus $b_{\nmin}$ is included in the reward function to encourage the agent to generate layouts satisfying this constraint.
-
-After executing the selected action, and obtained the corresponding reward, the $Q$-function value associated with state $s_t$ and action $a_t$ is evaluated and the learned policy $\pi$ is updated (lines~\ref{alg:q_update_start}--\ref{alg:q_update_end} of Algorithm~\ref{alg:qlearning_fixtures}).
-
-Once an episode has ended, the environment is arranged for the next episode, as reported in lines~\ref{alg:q_new_ep_start}--\ref{alg:q_new_ep_end} of Algorithm~\ref{alg:qlearning_fixtures}.
-
-Finally, after all training episodes have been completed, the learned policy is evaluated to obtain the fixture layout for the considered workpiece, as illustrated in lines~\ref{alg:q_evaluate_start}--\ref{alg:q_evaluate_end} of Algorithm~\ref{alg:qlearning_fixtures}.
+%		\label{alg:q_iteration_end}
+%		
+%		\If{random number $<\epsilon$} \Comment{exploration}
+%		\label{alg:q_policy_start}
+%		\State Select a random feasible action
+%		$a_t \in \mathcal{A}(s_t)$
+%		\Else \Comment{exploitation}
+%		\State Select
+%		$a_t=\arg\max\limits_{a\in\mathcal{A}(s_t)}Q(s_t,a)$
+%		\EndIf
+%		
+%		\State Perform action $a_t$ by placing the selected fixture
+%		\label{alg:q_policy_end}
+%		
+%		\State Recompute the feasible action set $\mathcal{A}(s_{t+1})$ 
+%		\label{alg:q_reset_action}
+%		
+%		\State Compute reward $r_t$ according to Eq.~\ref{eq:reward}
+%		\label{alg:q_update_start}
+%		
+%		\State Observe successor state $s_{t+1}$
+%		
+%		\State $Q(s_t,a_t) \gets Q(s_t,a_t) + \alpha \left[r_{t+1} + \gamma \max_{a_{t+1}}Q(s_{t+1},a_{t+1}) - Q(s_t,a_t) \right]$
+%		
+%		\State $s_t \gets s_{t+1}$
+%		\State Update $\pi$ with $a_t$
+%		\label{alg:q_update_end}
+%		
+%		\EndFor
+%		
+%%		\If{$\mathcal{L}_{ep}$ is better than $\mathcal{L}^*$}
+%%		\label{alg:q_new_ep_start}
+%%		\State $\mathcal{L}^* \gets \mathcal{L}_{ep}$
+%%		\EndIf
+%		\State $\epsilon \gets \rho\,\epsilon$
+%		\label{alg:q_new_ep_start}
+%		\State Reset the environment to the initial state $s_1$
+%		\State Reset the action space to $\mathcal{A}(s_1)$
+%		\label{alg:q_new_ep_end}
+%		
+%		\EndFor
+%		
+%		\State Evaluate the learned policy $\pi$
+%		\label{alg:q_evaluate_start}
+%		\State \textbf{return} $\mathcal{L}^*$
+%		\label{alg:q_evaluate_end}
+%		
+%	\end{algorithmic}
+%\end{algorithm}
+%
+%Given the fixture dimensions, it is known \emph{a priori} that some positions within the workpiece cannot accommodate a fixture, particularly those near the workpiece boundary or close to areas to be extruded. During the initialization phase, in lines~\ref{alg:q_init_start}--\ref{alg:q_init_end} of Algorithm~\ref{alg:qlearning_fixtures}, centroid positions that would result in fixtures extending outside the workpiece boundaries or overlapping areas to be extruded are removed from the set of possible actions $\mathcal{A}(s_t)$, considering the dimensions of the smallest fixture as reference.
+%
+%\begin{figure}[t]
+%	\centering
+%	\includegraphics[width=0.5\linewidth]{figures/q_learning_actions.png}
+%	\caption{Example of the available actions for a given workpiece. Green dots represent centroid positions where both square and rectangular fixtures can be placed, whereas red dots represent positions where only rectangular fixtures can be placed. The workpiece area is highlighted in light gray, while the areas to be extruded are highlighted in red.}
+%	\label{fig:q_learning_actions}
+%\end{figure}
+%
+%Figure~\ref{fig:q_learning_actions} shows an example of the set of feasible actions for a given workpiece, considering two available fixture types: square and rectangular. Green dots indicate centroid positions where both fixture types can be placed, whereas red dots indicate positions where only rectangular fixtures can be placed.
+%
+%The algorithm iterates over the training episodes and the corresponding steps. An episode terminates when no feasible actions remain or the maximum number of steps is reached, as reported in lines~\ref{alg:q_iteration_start}--\ref{alg:q_iteration_end} of Algorithm~\ref{alg:qlearning_fixtures}.
+%
+%The agent selects actions according to the $\epsilon$-greedy policy (lines~\ref{alg:q_policy_start}--\ref{alg:q_policy_end} of Algorithm~\ref{alg:qlearning_fixtures}), balancing the exploration of new placements with the exploitation of previously learned actions.
+%
+%Each action selected is evaluated through the reward associated with the transition from $s_t$ to $s_{t+1}$. The reward function combines the improvement obtained in the moment of inertia with additional terms promoting layouts composed of a larger number of fixtures, larger fixture dimensions, and increased spatial separation between fixtures:
+%
+%\begin{equation}
+%	r_{t+1}
+%	=
+%	\lambda_{\mathrm{iner}}\,\Delta\finer
+%	+
+%	\lambda_n n_{t+1}^{2}
+%	+
+%	\lambda_d\bar d
+%	+
+%	\begin{cases}
+%		b_{\nmin}, & \text{if } n_{t+1}\geq\nmin,\\
+%		0, & \text{otherwise}.
+%	\end{cases}
+%	\label{eq:reward}
+%\end{equation}
+%
+%\noindent in the equation: 
+%\begin{itemize} 
+%	\item $\Delta\finer$ is the variation of $\finer$ between the previous and current states;
+%	\item $n_{t+1}$ is the number of fixtures in the resulting layout. The quadratic term promotes layouts with a larger number of fixtures;
+%	\item $\bar d$ is the average Euclidean distance between the newly placed fixture and the previously placed fixtures,  promoting layouts with a larger spatial separation;
+%	\item $\lambda_{\finer}$, $\lambda_n$, and $\lambda_d$ are weighting coefficients balancing the contribution of the different reward components;
+%	\item $b_{\nmin}$ is an additional feasibility bonus assigned when the minimum required number of fixtures, $\nmin$, has been placed.
+%\end{itemize}
+%
+%After each fixture placement, all candidate centroid positions that no longer satisfy the safety-distance constraints are removed from the feasible action set, as reported in line~\ref{alg:q_reset_action} of Algorithm~\ref{alg:qlearning_fixtures}. Consequently, the action set progressively shrinks as the layout is constructed, ensuring that all geometric constraints are satisfied.
+%
+%The only constraint that cannot be enforced by restricting the feasible action set is the placement of the minimum number of required fixtures $\nmin$. For this reason, the feasibility bonus $b_{\nmin}$ is included in the reward function to encourage the agent to generate layouts satisfying this constraint.
+%
+%After executing the selected action, and obtained the corresponding reward, the $Q$-function value associated with state $s_t$ and action $a_t$ is evaluated and the learned policy $\pi$ is updated (lines~\ref{alg:q_update_start}--\ref{alg:q_update_end} of Algorithm~\ref{alg:qlearning_fixtures}).
+%
+%Once an episode has ended, the environment is arranged for the next episode, as reported in lines~\ref{alg:q_new_ep_start}--\ref{alg:q_new_ep_end} of Algorithm~\ref{alg:qlearning_fixtures}.
+%
+%Finally, after all training episodes have been completed, the learned policy is evaluated to obtain the fixture layout for the considered workpiece, as illustrated in lines~\ref{alg:q_evaluate_start}--\ref{alg:q_evaluate_end} of Algorithm~\ref{alg:qlearning_fixtures}.
 
 
 \section{Particle Swarm Optimization algorithm}
@@ -432,7 +426,7 @@ Particle Swarm Optimization (PSO) is employed to explicitly account for fixture 
 
 PSO is particularly well suited to this refinement phase due to its fast convergence and strong global search capability in high-dimensional and multi-objective optimization problems. Additionally, its simple structure, limited number of control parameters, and ease of hybridization enable robust optimization across diverse manufacturing, scheduling, and design applications when compared with Genetic Algorithms (GA), Simulated Annealing (SA), and gradient-based methods~\cite{kulkarni2015particle}.
 
-In our case, the position of each particle $s \in [1..\swarmsize]$ is represented by a matrix $P_s$ with four rows and $\nmax$ columns. Each column of $P_s$ corresponds to a fixture, while each row encodes one of the problem decision variables:
+In our formulation, the position of each particle \(s \in [1,\swarmsize]\) is represented by a matrix \(P_s\) with four rows and \(\nmax\) columns. Each column of \(P_s\) represents a fixture, while each row corresponds to one of the decision variables:
 \begin{itemize}
 	\item $P_s[1,j]$: the $x$-coordinate of the lower-left corner of the $j$-th fixture;
 	\item $P_s[2,j]$: the $y$-coordinate of the lower-left corner of the $j$-th fixture;
@@ -440,7 +434,9 @@ In our case, the position of each particle $s \in [1..\swarmsize]$ is represente
 	\item $P_s[4,j]$: the rotation angle $\alpha$ of the $j$-th fixture.
 \end{itemize}
 
-Each position matrix $P_s$ represents a candidate solution associated with particle $s$. The availability of an initial solution obtained from the CP model, the MIP model, or the Q-learning algorithm, ensures that the swarm is initialized from feasible layouts.
+Since PSO operates on continuous variable values, during the execution the fixture type values in $P_s[3,j]$ are rounded to the nearest integer to ensure valid fixture types and evaluate the corresponding constraints.
+
+Each position matrix $P_s$ represents a candidate solution associated with particle $s$. The availability of an initial solution obtained from the CP model and the MIP model ensures that the swarm is initialized from feasible layouts.
 
 
 \begin{algorithm}[htbp]
@@ -601,7 +597,7 @@ Being a local-search-based approach, $\lns$ cannot prove optimality. Nevertheles
 	\begin{table}[t]
 		\centering
 		\footnotesize
-		\caption{Objective values for $\fdistarea$ and $\finer$, and solve time $t_{solve}$ in seconds to reach the best $\fdistarea$ solution. Timeout (300~s) is indicated by ``--''. Solutions where the solver reached optimality are marked with $^*$. For each workpiece, the maximum values of $\fdistarea$ and $\finer$ are highlighted in bold, including ties.}
+		\caption{Objective values for $\fdist$ and $\finer$, and solve time $t_{solve}$ in seconds to reach the best $\fdist$ solution. Timeout (300~s) is indicated by ``--''. Solutions where the solver reached optimality are marked with $^*$. For each workpiece, the maximum values of $\fdist$ and $\finer$ are highlighted in bold, including ties.}
 		\label{tab:objective_runtime}
 		\setlength{\tabcolsep}{2pt}
 		\begin{tabular}{llccccc}
@@ -609,37 +605,37 @@ Being a local-search-based approach, $\lns$ cannot prove optimality. Nevertheles
 			Workpiece & Metric & Gecode & \lns & Chuffed & OR-Tools & Gurobi \\
 			\midrule
 			
-			\multirow{3}{*}{\makecell{Stair step\\spiral staircase}} & $\fdistarea$ & $45655{}^*$ & $45655$ & $45655{}^*$ & $45655{}^*$ & $\mathbf{45662.155{}^*}$ \\
+			\multirow{3}{*}{\makecell{Stair step\\spiral staircase}} & $\fdist$ & $45655{}^*$ & $45655$ & $45655{}^*$ & $45655{}^*$ & $\mathbf{45662.155{}^*}$ \\
 			& $\finer$ & \cellcolor{gray!15}$2.13968\times 10^{9}$ & \cellcolor{gray!15}$2.13968\times 10^{9}$ & \cellcolor{gray!15}$2.13960\times 10^{9}$ & \cellcolor{gray!15}$2.13968\times 10^{9}$ & \cellcolor{gray!15}$\mathbf{2.17089\times 10^{9}}$ \\
 			& $t_{solve}$ & 0.559 & -- & 0.326 & 0.120 & 2.930 \\
 			\midrule
 			
-			\multirow{3}{*}{\makecell{Stair step\\simple staircase}} & $\fdistarea$ & $72823$ & $72823$ & $72823{}^*$ & $72721$ & $\mathbf{72826.000{}^*}$ \\
+			\multirow{3}{*}{\makecell{Stair step\\simple staircase}} & $\fdist$ & $72823$ & $72823$ & $72823{}^*$ & $72721$ & $\mathbf{72826.000{}^*}$ \\
 			& $\finer$ & \cellcolor{gray!15}$6.76573\times 10^{9}$ & \cellcolor{gray!15}$6.76573\times 10^{9}$ & \cellcolor{gray!15}$6.76530\times 10^{9}$ & \cellcolor{gray!15}$6.48172\times 10^{9}$ & \cellcolor{gray!15}$\mathbf{6.76638\times 10^{9}}$ \\
 			& $t_{solve}$ & -- & -- & 3.386 & -- & 0.220 \\
 			\midrule
 			
-			\multirow{3}{*}{\makecell{Dashboard}} & $\fdistarea$ & $\mathbf{55582{}^*}$ & $\mathbf{55582}$ & $\mathbf{55582{}^*}$ & $\mathbf{55582{}^*}$ & $\mathbf{55582.000{}^*}$ \\
+			\multirow{3}{*}{\makecell{Dashboard}} & $\fdist$ & $\mathbf{55582{}^*}$ & $\mathbf{55582}$ & $\mathbf{55582{}^*}$ & $\mathbf{55582{}^*}$ & $\mathbf{55582.000{}^*}$ \\
 			& $\finer$ & \cellcolor{gray!15}$\mathbf{7.10094\times 10^{9}}$ & \cellcolor{gray!15}$\mathbf{7.10094\times 10^{9}}$ & \cellcolor{gray!15}$7.08735\times 10^{9}$ & \cellcolor{gray!15}$7.08735\times 10^{9}$ & \cellcolor{gray!15}$7.08735\times 10^{9}$ \\
 			& $t_{solve}$ & 0.044 & -- & 0.057 & 0.102 & 0.157 \\
 			\midrule
 			
-			\multirow{3}{*}{\makecell{Speaker}} & $\fdistarea$ & $\mathbf{49548{}^*}$ & $\mathbf{49548}$ & $\mathbf{49548{}^*}$ & $\mathbf{49548{}^*}$ & $\mathbf{49548.000{}^*}$ \\
+			\multirow{3}{*}{\makecell{Speaker}} & $\fdist$ & $\mathbf{49548{}^*}$ & $\mathbf{49548}$ & $\mathbf{49548{}^*}$ & $\mathbf{49548{}^*}$ & $\mathbf{49548.000{}^*}$ \\
 			& $\finer$ & \cellcolor{gray!15}$\mathbf{2.93433\times 10^{9}}$ & \cellcolor{gray!15}$\mathbf{2.93433\times 10^{9}}$ & \cellcolor{gray!15}$\mathbf{2.93433\times 10^{9}}$ & \cellcolor{gray!15}$\mathbf{2.93433\times 10^{9}}$ & \cellcolor{gray!15}$\mathbf{2.93433\times 10^{9}}$ \\
 			& $t_{solve}$ & 165.018 & -- & 0.106 & 0.120 & 0.126 \\
 			\midrule
 			
-			\multirow{3}{*}{\makecell{Coffee table}} & $\fdistarea$ & $137262$ & $185351$ & $192711$ & $122920$ & $\mathbf{201686.505}$ \\
+			\multirow{3}{*}{\makecell{Coffee table}} & $\fdist$ & $137262$ & $185351$ & $192711$ & $122920$ & $\mathbf{201686.505}$ \\
 			& $\finer$ & \cellcolor{gray!15}$2.20750\times 10^{10}$ & \cellcolor{gray!15}$2.19967\times 10^{10}$ & \cellcolor{gray!15}$\mathbf{2.21449\times 10^{10}}$ & \cellcolor{gray!15}$9.10490\times 10^{9}$ & \cellcolor{gray!15}$2.19472\times 10^{10}$ \\
 			& $t_{solve}$ & -- & -- & -- & -- & -- \\
 			\midrule
 			
-			\multirow{3}{*}{\makecell{Door}} & $\fdistarea$ & $261757$ & $\mathbf{521632}$ & -- & -- & $355744.000$ \\
+			\multirow{3}{*}{\makecell{Door}} & $\fdist$ & $261757$ & $\mathbf{521632}$ & -- & -- & $355744.000$ \\
 			& $\finer$ & \cellcolor{gray!15}$1.08442\times 10^{11}$ & \cellcolor{gray!15}$\mathbf{1.52925\times 10^{11}}$ & \cellcolor{gray!15}-- & \cellcolor{gray!15}-- & \cellcolor{gray!15}$1.17690\times 10^{11}$ \\
 			& $t_{solve}$ & -- & -- & -- & -- & -- \\
 			\midrule
 			
-			\multirow{3}{*}{\makecell{Door\\with porthole}} & $\fdistarea$ & $261759$ & $\mathbf{393343}$ & -- & -- & $298186.000$ \\
+			\multirow{3}{*}{\makecell{Door\\with porthole}} & $\fdist$ & $261759$ & $\mathbf{393343}$ & -- & -- & $298186.000$ \\
 			& $\finer$ & \cellcolor{gray!15}$1.08422\times 10^{11}$ & \cellcolor{gray!15}$\mathbf{1.52861\times 10^{11}}$ & \cellcolor{gray!15}-- & \cellcolor{gray!15}-- & \cellcolor{gray!15}$1.39714\times 10^{11}$ \\
 			& $t_{solve}$ & -- & -- & -- & -- & -- \\
 			
@@ -649,79 +645,106 @@ Being a local-search-based approach, $\lns$ cannot prove optimality. Nevertheles
 	
 \end{landscape}
 
-The Q-learning based algorithm was implemented in Python~3.11.9 using the Gymnasium library version~1.3.0. The agent was trained on all the considered workpieces for 200 episodes, each consisting of 20 steps, using the following hyperparameters: learning rate $\alpha = 0.1$, discount factor $\gamma = 0.99$, initial exploration rate $\epsilon = 1.0$, and exploration decay factor $\rho = 0.995$.
+For each workpiece, the best CP and MIP solutions in terms of $\finer$, were used as initial ones for the PSO algorithm. 
 
-Table~\ref{tab:comparison} reports the results obtained for the different workpieces, comparing the corresponding values of the moment of inertia with those achieved by the best CP solver and the MIP model.
-
-Overall, the Q-learning based algorithm does not outperform either the CP or the MIP model. On average, the values of $\finer$ obtained by Q-learning are 13\% lower than those achieved by CP and 8\% lower than those obtained with MIP. The only exception is the door with a porthole workpiece, for which Q-learning outperforms the solution returned by Gurobi for the MIP model.
+To enable direct integration into the target industrial system, the PSO algorithm was implemented in Java~18.0.2. Its hyper-parameters were tuned using the Optuna framework~\cite{akiba2019optuna}, yielding the following configuration: $\swarmsize = 1374$, $\maxiter = 2912$, $w = 0.669$, $c_1 = 2.385$, and $c_2 = 0.558$.
 
 
-\begin{table}[t]
+\begin{table}[!t]
 	\centering
 	\footnotesize
-	\caption{Objective values $\finer$ comparison: CP solvers (best among Gecode, LNS, Chuffed, OR-Tools), MIP solver (Gurobi), and RL approach. For each workpiece, the maximum value is highlighted in bold.}
-	\label{tab:comparison}
+	\renewcommand{\arraystretch}{1.3}
 	\setlength{\tabcolsep}{5pt}
-	\begin{tabular}{cccc}
-		\toprule
-		Workpiece & CP model & MIP model & Q-learning \\
-		\midrule
+	
+	\caption{Comparison of the best and mean moment of inertia and coefficient of variation (CV) obtained with CP and MIP across repeated PSO runs. CV is the sample standard deviation divided by the mean. Bold values indicate the highest best or mean result for each workpiece.}
+	
+	\label{tab:pso_cp_mip_comparison}
+	
+	\begin{tabular}{l c c c c}
 		
-		\makecell{Stair step\\spiral staircase} & $2.13968\times 10^{9}$ & $\mathbf{2.17089\times 10^{9}}$ & $1.93822\times 10^{9}$ \\
-		\midrule
+		\hline
 		
-		\makecell{Stair step\\simple staircase} & $6.76573\times 10^{9}$ & $\mathbf{6.76638\times 10^{9}}$ & $5.65433\times 10^{9}$ \\
-		\midrule
+		Workpiece & Model & Best & Mean & CV (\%) \\
 		
-		\makecell{Dashboard} & $\mathbf{7.10094\times 10^{9}}$ & $7.08735\times 10^{9}$ & $6.65446\times 10^{9}$ \\
-		\midrule
+		\hline
 		
-		\makecell{Speaker} & $\mathbf{2.93433\times 10^{9}}$ & $\mathbf{2.93433\times 10^{9}}$ & $2.81248\times 10^{9}$ \\
-		\midrule
+		\multirow{2}{*}{\makecell[l]{Stair step\\spiral staircase}} & CP & $2.38514\times 10^{9}$ & $2.34680\times 10^{9}$ & 0.936\% \\
+		& \cellcolor{gray!15}MIP & \cellcolor{gray!15}$\mathbf{2.38520\times 10^{9}}$ & \cellcolor{gray!15}$\mathbf{2.34714\times 10^{9}}$ & \cellcolor{gray!15}0.945\% \\
 		
-		\makecell{Coffee table} & $\mathbf{2.29750\times 10^{10}}$ & $2.19472\times 10^{10}$ & $1.56444\times 10^{10}$ \\
-		\midrule
+		\hline
 		
-		\makecell{Door} & $\mathbf{1.52925\times 10^{11}}$ & $1.17690\times 10^{11}$ & $1.14387\times 10^{11}$ \\
-		\midrule
+		\multirow{2}{*}{\makecell[l]{Stair step\\simple staircase}} & CP & $6.81046\times 10^{9}$ & $5.26939\times 10^{9}$ & 7.799\% \\
+		& \cellcolor{gray!15}MIP & \cellcolor{gray!15}$\mathbf{6.81109\times 10^{9}}$ & \cellcolor{gray!15}$\mathbf{6.81108\times 10^{9}}$ & \cellcolor{gray!15}0.0001\% \\
 		
-		\makecell{Door\\with porthole} & $\mathbf{1.52861\times 10^{11}}$ & $1.39714\times 10^{11}$ & $1.45467\times 10^{11}$ \\
+		\hline
 		
-		\bottomrule
+		\multirow{2}{*}{\makecell[l]{Dashboard}} & CP & $\mathbf{7.28465\times 10^{9}}$ & $7.28363\times 10^{9}$ & 0.011\% \\
+		& \cellcolor{gray!15}MIP & \cellcolor{gray!15}$\mathbf{7.28465\times 10^{9}}$ & \cellcolor{gray!15}$\mathbf{7.28387\times 10^{9}}$ & \cellcolor{gray!15}0.011\% \\
+		
+		\hline
+		
+		\multirow{2}{*}{\makecell[l]{Speaker}} & CP & $\mathbf{3.00956\times 10^{9}}$ & $\mathbf{3.00092\times 10^{9}}$ & 0.641\% \\
+		& \cellcolor{gray!15}MIP & \cellcolor{gray!15}$3.00616\times 10^{9}$ & \cellcolor{gray!15}$2.96697\times 10^{9}$ & \cellcolor{gray!15}0.773\% \\
+		
+		\hline
+		
+		\multirow{2}{*}{\makecell[l]{Coffee table}} & CP & $2.27774\times 10^{10}$ & $\mathbf{2.25603\times 10^{10}}$ & 0.594\% \\
+		& \cellcolor{gray!15}MIP & \cellcolor{gray!15}$\mathbf{2.27949\times 10^{10}}$ & \cellcolor{gray!15}$2.22810\times 10^{10}$ & \cellcolor{gray!15}1.086\% \\
+		
+		\hline
+		
+		\multirow{2}{*}{\makecell[l]{Door}} & CP & $\mathbf{1.78090\times 10^{11}}$ & $\mathbf{1.75895\times 10^{11}}$ & 1.119\% \\
+		& \cellcolor{gray!15}MIP & \cellcolor{gray!15}$1.50433\times 10^{11}$ & \cellcolor{gray!15}$1.37290\times 10^{11}$ & \cellcolor{gray!15}5.093\% \\
+		
+		\hline
+		
+		\multirow{2}{*}{\makecell[l]{Door\\with porthole}} & CP & $\mathbf{1.70552\times 10^{11}}$ & $\mathbf{1.70511\times 10^{11}}$ & 0.021\% \\
+		& \cellcolor{gray!15}MIP & \cellcolor{gray!15}$1.58425\times 10^{11}$ & \cellcolor{gray!15}$1.51954\times 10^{11}$ & \cellcolor{gray!15}2.823\% \\
+		
+		\hline
+		
 	\end{tabular}
+	
 \end{table}
 
+Table~\ref{tab:pso_cp_mip_comparison} reports the best and average results, together with the coefficient of variation (CV), obtained over 20 PSO runs initialized from the CP and MIP solutions. Overall, the two initialization methods show comparable best-case performance, while CP provides better average results across repeated runs, achieving the highest mean value for four workpieces compared with three for MIP. 
 
-\begin{figure}[t]
+The coefficient of variation further indicates that CP generally provides more consistent results for the more challenging workpieces, particularly for the coffee table and the two door instances. 
+
+\begin{figure}[!b]
 	\centering
-	\begin{subfigure}[b]{\textwidth}
+	\begin{subfigure}{0.7\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{figures/comparison_plot_1.png}
+		\includegraphics[width=\textwidth]{figures/comparison_plot1.png}
 		\caption{Percentage improvement over expert operator}
 		\label{fig:comparison_plot1}
 	\end{subfigure}
 	%\hspace{1.5cm}
-	\begin{subfigure}[b]{\textwidth}
+	\begin{subfigure}{0.7\textwidth}
 		\centering
-		\includegraphics[width=\textwidth]{figures/comparison_plot_2.png}
+		\includegraphics[width=\textwidth]{figures/comparison_plot2.png}
 		\caption{Percentage improvement over expert operator after PSO refinement}
 		\label{fig:comparison_plot2}
 	\end{subfigure}
-	\caption{Percentage improvement relative to the solution provided by the expert operator. The first plot illustrates the improvements achieved by the CP model, MIP model and Q-learning algorithm without PSO integration, whereas the second plot presents the improvements obtained with PSO integration, alongside the improvement of the expert operator's solution when combined with PSO.}
+	\caption{Percentage improvement relative to the solution provided by the expert operator. The first plot illustrates the improvements achieved by the CP model and the MIP model without PSO integration, whereas the second plot presents the improvements obtained with PSO integration, alongside the improvement of the expert operator's solution when combined with PSO.}
 	\label{fig:improvement}
 \end{figure}
 
-For each workpiece, the best CP and MIP solutions in terms of $\finer$, together with the Q-learning solution, were used as initial ones for the PSO algorithm. 
+Figure~\ref{fig:improvement} shows the percentage improvement in $\finer$ with respect to the layout proposed by an expert operator. The first plot (Figure~\ref{fig:comparison_plot1}) reports the improvements achieved by the CP model and the MIP model before PSO refinement, whereas the second plot (Figure~\ref{fig:comparison_plot2}) shows the corresponding results after PSO refinement, including those obtained by initializing PSO from the expert layout.
 
-To enable direct integration into the target industrial system, the PSO algorithm was implemented in Java~18.0.2. Its hyper-parameters were tuned using the Optuna framework~\cite{akiba2019optuna}, yielding the following configuration: $\swarmsize = 1374$, $\maxiter = 2912$, $w = 0.669$, $c_1 = 2.385$, and $c_2 = 0.558$.
-
-Figure~\ref{fig:improvement} shows the percentage improvement in $\finer$ with respect to the layout proposed by an expert operator. The first plot (Figure~\ref{fig:comparison_plot1}) reports the improvements achieved by the CP model, the MIP model, and the Q-learning algorithm before PSO refinement, whereas the second plot (Figure~\ref{fig:comparison_plot2}) shows the corresponding results after PSO refinement, including those obtained by initializing PSO from the expert layout.
-
-The largest workpieces, namely the coffee table, the door, and the door with porthole, represent the most challenging instances. Among the considered approaches, the CP model consistently achieves the best improvements over the expert layout and is the only one that improves upon the expert solution for the door workpiece.
-
-The Q-learning algorithm outperforms the expert layout in four of the seven considered workpieces. The integration with PSO further improves the solutions generated by the Q-learning algorithm for the stair step of the spiral staircase and the door, allowing them to surpass the expert layout. Conversely, when initialized with the Q-learning solution for the Coffee table, which represents the weakest initial layout, PSO achieves only marginal improvements, highlighting the importance of providing a high-quality starting solution.
+The largest workpieces, namely the coffee table, the door, and the door with porthole, represent the most challenging instances. Among the considered approaches, the CP model consistently achieves the greatest improvements over the expert layouts and is able to outperform the expert solution for the door workpiece, for which the MIP model fails.
 
 The plot in Figure~\ref{fig:comparison_plot2} reports in green the improvement achieved by initializing PSO with the expert operator layout, and for all the considered workpieces, PSO generates layouts that outperform the expert solution, demonstrating its effectiveness as a refinement technique.
+
+Tables~\ref{tab:visual_results_first} and ~\ref{tab:visual_results_second} report visual comparisons of the best solutions obtained with the CP model and the MIP model for the different workpieces, together with the corresponding solutions refined by PSO. Note that, in the figures, the support bars can be positioned beneath the areas to be extruded, since the fixture height prevents collisions between the cutting tools and the bars.
+
+Rotation plays an important role in the stair step of the spiral staircase and coffee table workpieces, where fixture orientation improves adherence to the workpiece boundary. For the speaker and the dashboard workpiece, the PSO refinement introduce only a slight rotation of the rectangular fixtures, yielding the marginal improvement reported in Figure~\ref{fig:improvement}.
+
+The Stair step of the simple staircase exhibits the largest improvement over the expert layout. This is mainly due to the use of a larger number of fixtures, five for the CP and MIP models, compared with the three fixtures used by the expert operator.
+
+For both the door and the door with a porthole workpieces, the expert operator adopts a symmetric fixture layout, whereas the PSO refinement tends to move the fixtures farther from the workpiece centre. Since the principal moments of inertia are maximised when the fixtures are placed away from the symmetry axes, this configuration yields higher values of $\finer$. Moreover, in the door workpiece, the expert layout relies exclusively on square fixtures, whereas the optimization strategies increase the number of fixtures using even rectangular ones, thereby increasing the supported area of the workpiece.
+
+Overall, considering both the solutions obtained by CP and MIP independently and their subsequent refinement with PSO, the best results are obtained with the CP model. The CP formulation is expected to scale better to problems involving additional fixture types and multiple areas to be extruded owing to the stronger propagation of the \texttt{diffn} global constraint, and the fact that type and overlap decisions are modeled through discrete variables that cannot be relaxed, unlike the $x$ and $y$ variables in the MIP formulation.
 
 \begin{landscape}
 	\begin{table}[t]
@@ -729,39 +752,35 @@ The plot in Figure~\ref{fig:comparison_plot2} reports in green the improvement a
 		\renewcommand{\arraystretch}{1.3}
 		\setlength{\tabcolsep}{3pt}
 		\caption{Summary of the best solutions, corresponding solution providers, and moment of inertia values for the first four workpieces. 
-			The workpiece perimeter is shown with solid lines. Dashed lines indicate areas to be extruded, fixture regions are marked with diagonal hatching, and supporting bars are shown as shaded rectangles.}
+			The workpiece perimeter is shown with solid lines. Dashed lines indicate extrusion areas, fixture regions are marked with diagonal hatching, and supporting bars are shown as shaded rectangles.}
 		\label{tab:visual_results_first}
-		\begin{tabular}{c c c c c}
+		\begin{tabular}{c c c c}
 			\hline
-			\textbf{Workpiece} & \textbf{Expert Operator} & \textbf{Best CP/MIP} & \textbf{Q-learning} & \textbf{Best with PSO} \\
+			\textbf{Workpiece} & \textbf{Expert Operator} & \textbf{Best CP/MIP} & \textbf{Best with PSO} \\
 			\hline
 			
-			\makecell{Spiral stair step} & 
-			\makecell{$1.96057\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/spiral_stair_step_expert_operator.png}} & 
+			\makecell{Stair step\\spiral staircase} & 
+			\makecell{$1.98697\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/spiral_stair_step_expert_operator.png}} & 
 			\makecell{MIP: $2.17089\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/spiral_stair_step_mip_model_gurobi.png}} & 
-			\makecell{$1.93822\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/spiral_stair_step_rl.png}} & 
-			\makecell{RL: $2.38520\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/spiral_stair_step_pso_rl_pso.png}} \\
+			\makecell{MIP: $2.38520\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/spiral_stair_step_pso_mip_pso.png}} \\
 			\hline
 			
-			\makecell{Simple stair step} & 
-			\makecell{$3.77213\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/simple_stair_step_expert_operator.png}} & 
+			\makecell{Stair step\\simple staircase} & 
+			\makecell{$4.00911\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/simple_stair_step_expert_operator.png}} & 
 			\makecell{MIP: $6.76638\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/simple_stair_step_mip_model_gurobi.png}} & 
-			\makecell{$5.65433\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/simple_stair_step_rl.png}} & 
-			\makecell{CP: $6.81108\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/simple_stair_step_pso_cp_pso.png}} \\
+			\makecell{MIP: $6.81108\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/simple_stair_step_pso_mip_pso.png}} \\
 			\hline
 			
 			\makecell{Dashboard} & 
 			\makecell{$6.29544\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/dashboard_expert_operator.png}} & 
 			\makecell{CP: $7.10094\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/dashboard_cp_model_gecode.png}} & 
-			\makecell{$6.65446\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/dashboard_rl.png}} & 
-			\makecell{CP: $7.12226\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/dashboard_pso_cp_pso.png}} \\
+			\makecell{CP: $7.12882\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/dashboard_pso_cp_pso.png}} \\
 			\hline
 			
 			\makecell{Speaker} & 
 			\makecell{$2.69490\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/speaker_expert_operator.png}} & 
 			\makecell{CP, MIP: $2.93433\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/speaker_cp_model_gecode.png}} & 
-			\makecell{$2.81248\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/speaker_rl.png}} & 
-			\makecell{RL: $3.00979\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/speaker_pso_rl_pso.png}} \\
+			\makecell{CP: $3.00956\times 10^{9}$ \\ \includegraphics[width=0.18\linewidth]{figures/speaker_pso_cp_pso.png}} \\
 			\hline
 			
 		\end{tabular}
@@ -772,48 +791,33 @@ The plot in Figure~\ref{fig:comparison_plot2} reports in green the improvement a
 		\renewcommand{\arraystretch}{1.3}
 		\setlength{\tabcolsep}{3pt}
 		\caption{Summary of the best solutions, corresponding solution providers, and moment of inertia values for the remaining three workpieces. 
-			The workpiece perimeter is shown with solid lines. Dashed lines indicate areas to be extruded, fixture regions are marked with diagonal hatching, and supporting bars are shown as shaded rectangles.}
+			The workpiece perimeter is shown with solid lines. Dashed lines indicate extrusion areas, fixture regions are marked with diagonal hatching, and supporting bars are shown as shaded rectangles.}
 		\label{tab:visual_results_second}
-		\begin{tabular}{c c c c c}
+		\begin{tabular}{c c c c}
 			\hline
-			\textbf{Workpiece} & \textbf{Expert Operator} & \textbf{Best CP/MIP} & \textbf{Q-learning} & \textbf{Best with PSO} \\
+			\textbf{Workpiece} & \textbf{Expert Operator} & \textbf{Best CP/MIP} & \textbf{Best with PSO} \\
 			\hline
 			
 			\makecell{Coffee table} & 
-			\makecell{$2.17954\times 10^{10}$ \\ \includegraphics[width=0.18\linewidth]{figures/coffee_table_expert_operator.png}} & 
+			\makecell{$2.14371\times 10^{10}$ \\ \includegraphics[width=0.18\linewidth]{figures/coffee_table_expert_operator.png}} & 
 			\makecell{CP: $2.21449\times 10^{10}$ \\ \includegraphics[width=0.18\linewidth]{figures/coffee_table_cp_model_chuffed.png}} & 
-			\makecell{$1.56444\times 10^{10}$ \\ \includegraphics[width=0.18\linewidth]{figures/coffee_table_rl.png}} & 
-			\makecell{CP: $2.25868\times 10^{10}$ \\ \includegraphics[width=0.18\linewidth]{figures/coffee_table_pso_cp_pso.png}} \\
+			\makecell{MIP: $2.27948\times 10^{10}$ \\ \includegraphics[width=0.18\linewidth]{figures/coffee_table_pso_mip_pso.png}} \\
 			\hline
 			
 			\makecell{Door} & 
 			\makecell{$1.31109\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_expert_operator.png}} & 
 			\makecell{CP: $1.52925\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_LNS_cp_model_gecode.png}} & 
-			\makecell{$1.14387\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_rl.png}} & 
-			\makecell{CP: $1.73826\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_pso_cp_pso.png}} \\
+			\makecell{CP: $1.78090\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_pso_cp_pso.png}} \\
 			\hline
 			
-			\makecell{Door porthole} & 
+			\makecell{Door\\with porthole} & 
 			\makecell{$1.31109\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_porthole_expert_operator.png}} & 
 			\makecell{CP: $1.52861\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_porthole_LNS_cp_model_gecode.png}} & 
-			\makecell{$1.45467\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_porthole_rl.png}} & 
-			\makecell{CP: $1.70507\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_porthole_pso_cp_pso.png}} \\
+			\makecell{CP: $1.70552\times 10^{11}$ \\ \includegraphics[width=0.18\linewidth]{figures/door_porthole_pso_cp_pso.png}} \\
 			\hline
 			
 		\end{tabular}
 	\end{table}
 \end{landscape}
-
-Tables~\ref{tab:visual_results_first} and ~\ref{tab:visual_results_second} report visual comparisons of the best solutions obtained with the CP model, the MIP model, and the Q-learning algorithm for the different workpieces, together with the corresponding solutions refined by PSO. Note that, in the figures, the support bars can be positioned beneath the areas to be extruded, since the fixture height prevents collisions between the cutting tools and the bars.
-
-The layouts proposed by the Q-learning algorithm are qualitatively similar to those obtained with the CP and MIP models. An exception is the coffee table, where Q-learning tends to favour the placement of a larger number of rectangular fixtures instead of square ones, resulting in a lower value for the moment of inertia.
-
-Rotation plays an important role in the stair step of the spiral staircase and coffee table workpieces, where fixture orientation improves adherence to the workpiece boundary. For the Speaker workpiece, the PSO refinement of the Q-learning solution introduces only a slight rotation of the upper-left fixture, yielding the marginal improvement reported in Figure~\ref{fig:improvement}.
-
-The stair step of the simple staircase exhibits the largest improvement over the expert layout. This is mainly due to the use of a larger number of fixtures, five for the CP and MIP models and four for the Q-learning algorithm, compared with the three fixtures used by the expert operator.
-
-For both the door and the door with a porthole workpieces, the expert operator adopts a symmetric fixture layout, whereas the PSO refinement tends to move the fixtures farther from the workpiece centre. Since the principal moments of inertia are maximised when the fixtures are placed away from the symmetry axes, this configuration yields higher values of $\finer$. Moreover, in the door workpiece, the expert layout relies exclusively on square fixtures, whereas the optimization strategies increase the number of fixtures using even rectangular ones, thereby increasing the supported area of the workpiece.
-
-Overall, the best trade-off between computational time and solution quality is achieved by integrating the CP model with PSO. The CP formulation is expected to scale better to problems involving additional fixture types and multiple areas to be extruded owing to the stronger propagation of the \texttt{diffn} global constraint and the fact that type and overlap decisions are modeled through discrete variables that cannot be relaxed, unlike the $x$ and $y$ variables in the MIP formulation.
 
 
